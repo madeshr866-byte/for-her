@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Will You Accept? 🌹</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&family=Sacramento&display=swap" rel="stylesheet">
+    <style>
+        /* --- Custom Animations & Base Styles --- */
+        body {
+            font-family: 'Quicksand', sans-serif;
+            overflow-x: hidden;
+            background-color: #fff0f3; /* Light pink base */
+            transition: background-color 0.5s ease;
+        }
+
+        body.dark-mode {
+            background-color: #2d1b2e;
+            color: #ffd1dc;
+        }
+        
+        body.dark-mode .glass-card {
+            background: rgba(45, 27, 46, 0.7);
+            border: 1px solid rgba(255, 209, 220, 0.1);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+            transition: all 0.5s ease;
+        }
+
+        /* Typography */
+        .title-font {
+            font-family: 'Sacramento', cursive;
+        }
+
+        /* Typewriter Cursor */
+        .cursor::after {
+            content: '|';
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* Character Container */
+        .scene-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        /* Anime Character Base */
+        .character {
+            position: absolute;
+            bottom: 20px;
+            height: 220px;
+            width: 140px;
+            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            will-change: transform, left;
+        }
+
+        /* Boy Specifics */
+        #boy {
+            left: -150px; /* Start off-screen */
+            z-index: 10;
+        }
+        .boy-body { transform-origin: bottom center; }
+        .walk-anim { animation: walking 0.6s infinite ease-in-out alternate; }
+        
+        @keyframes walking {
+            0% { transform: translateY(0) rotate(0deg); }
+            100% { transform: translateY(-5px) rotate(2deg); }
+        }
+
+        /* Girl Specifics */
+        #girl {
+            right: 15%; /* Static position */
+            transform: scaleX(-1); /* Face left initially to look at boy walking in? No, standard face left is normal for right side */
+            z-index: 9;
+        }
+
+        /* Facial Expressions */
+        .blush { opacity: 0; transition: opacity 1s ease; }
+        .smile { display: none; }
+        .smile-visible { display: block !important; }
+        .mouth-neutral { transition: opacity 0.3s; }
+        
+        /* Rose Animation */
+        .rose-held {
+            transform-origin: bottom center;
+            transition: all 1s ease;
+        }
+        
+        .rose-floating {
+            animation: floatRose 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 10px rgba(255, 0, 80, 0.6));
+        }
+
+        @keyframes floatRose {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-10px) scale(1.1); }
+        }
+
+        /* Particles */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            animation: floatUp 2s forwards ease-out;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.5); opacity: 1; }
+            100% { transform: translateY(-100px) scale(1.5); opacity: 0; }
+        }
+
+        /* Buttons */
+        .btn-yes {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .btn-yes:hover { transform: scale(1.05) translateY(-2px); }
+        .btn-yes:active { transform: scale(0.95); }
+
+        .btn-no {
+            background: #e2e8f0;
+            color: #64748b;
+            transition: all 0.2s ease;
+            position: relative; /* Needed for movement */
+        }
+
+        /* Canvas Background */
+        #petalsCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Confession Text */
+        .confession-text {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 1s ease;
+        }
+        .confession-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4 transition-colors duration-500">
+
+    <!-- Background Canvas for Petals -->
+    <canvas id="petalsCanvas"></canvas>
+
+    <!-- Top Controls -->
+    <div class="fixed top-4 right-4 flex gap-3 z-50">
+        <button id="musicToggle" class="p-2 rounded-full glass-card hover:bg-white/50 transition" title="Toggle Music">
+            🎵
+        </button>
+        <button id="themeToggle" class="p-2 rounded-full glass-card hover:bg-white/50 transition" title="Toggle Theme">
+            🌙
+        </button>
+    </div>
+
+    <!-- Hidden Audio Element (Placeholder URL) -->
+    <!-- Note: Browsers block autoplay. User must interact first (click toggle) to start. -->
+    <audio id="bgMusic" loop>
+        <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Main Card -->
+    <main class="glass-card w-full max-w-lg rounded-3xl p-6 md:p-10 text-center relative overflow-hidden shadow-2xl">
+        
+        <!-- Header -->
+        <div class="mb-4">
+            <h1 class="text-4xl md:text-5xl font-bold text-rose-500 title-font mb-2">
+                <span id="typewriter"></span><span class="cursor"></span>
+            </h1>
+            <p id="subtitle" class="text-gray-600 text-sm md:text-base opacity-0 transition-opacity duration-1000">
+                Will you accept this rose? 💖
+            </p>
+        </div>
+
+        <!-- Animation Stage -->
+        <div class="scene-container bg-white/30 rounded-xl mb-6 shadow-inner" id="stage">
+            
+            <!-- Boy Character SVG -->
+            <div id="boy" class="character">
+                <svg viewBox="0 0 100 200" class="w-full h-full drop-shadow-lg">
+                    <!-- Legs -->
+                    <path d="M35,140 L35,200" stroke="#374151" stroke-width="12" stroke-linecap="round" />
+                    <path d="M65,140 L65,200" stroke="#374151" stroke-width="12" stroke-linecap="round" />
+                    <!-- Hoodie Body -->
+                    <path d="M25,80 Q50,70 75,80 L80,140 L20,140 Z" fill="#60a5fa" /> 
+                    <!-- Arm (Holding Rose) -->
+                    <g id="boy-arm" style="transform-origin: 25px 90px; transition: transform 1s ease;">
+                        <path d="M25,90 Q15,110 35,120" stroke="#60a5fa" stroke-width="10" stroke-linecap="round" fill="none"/>
+                        <!-- Rose -->
+                        <g id="rose" transform="translate(35, 120) scale(0)">
+                            <path d="M0,0 L0,-30" stroke="#059669" stroke-width="2" />
+                            <path d="M0,-30 Q-5,-45 0,-45 Q5,-45 0,-30" fill="#e11d48" />
+                            <circle cx="0" cy="-35" r="5" fill="#f43f5e" />
+                        </g>
+                    </g>
+                    <!-- Head -->
+                    <circle cx="50" cy="50" r="22" fill="#ffedd5" />
+                    <!-- Hair (Anime Spikes) -->
+                    <path d="M28,45 Q20,30 35,25 Q40,10 50,15 Q65,5 70,30 Q80,35 72,50" fill="#1f2937" />
+                    <!-- Face -->
+                    <g id="boy-face">
+                        <circle cx="42" cy="50" r="2" fill="#1f2937" />
+                        <circle cx="58" cy="50" r="2" fill="#1f2937" />
+                        <!-- Mouth (Nervous) -->
+                        <path id="boy-mouth" d="M45,60 Q50,58 55,60" stroke="#1f2937" stroke-width="1" fill="none" />
+                        <!-- Blush -->
+                        <ellipse cx="40" cy="56" rx="3" ry="1" fill="#fca5a5" opacity="0.5" />
+                        <ellipse cx="60" cy="56" rx="3" ry="1" fill="#fca5a5" opacity="0.5" />
+                    </g>
+                </svg>
+            </div>
+
+            <!-- Girl Character SVG -->
+            <div id="girl" class="character">
+                <svg viewBox="0 0 100 200" class="w-full h-full drop-shadow-lg" style="transform: scaleX(-1);">
+                    <!-- Legs/Dress Bottom -->
+                    <path d="M30,140 L70,140 L80,190 L20,190 Z" fill="#fbcfe8" />
+                    <!-- Body -->
+                    <path d="M35,80 Q50,75 65,80 L70,140 L30,140 Z" fill="#f472b6" />
+                    <!-- Head -->
+                    <circle cx="50" cy="50" r="20" fill="#ffedd5" />
+                    <!-- Hair (Long) -->
+                    <path d="M25,50 Q20,10 50,10 Q80,10 75,50 L80,100 L70,90 L60,100 L50,40 L40,100 L30,90 L20,100 Z" fill="#78350f" />
+                    <!-- Face -->
+                    <g id="girl-face">
+                        <circle cx="42" cy="50" r="2" fill="#1f2937" />
+                        <circle cx="58" cy="50" r="2" fill="#1f2937" />
+                        <!-- Mouth (Neutral initially) -->
+                        <path id="girl-mouth" d="M46,60 L54,60" stroke="#1f2937" stroke-width="1" fill="none" />
+                        <!-- Blush (Hidden initially) -->
+                        <g class="blush" id="girl-blush">
+                            <circle cx="38" cy="56" r="3" fill="#f43f5e" opacity="0.6" />
+                            <circle cx="62" cy="56" r="3" fill="#f43f5e" opacity="0.6" />
+                            <path d="M36,54 L40,58 M36,58 L40,54" stroke="#f43f5e" stroke-width="0.5" />
+                            <path d="M60,54 L64,58 M60,58 L64,54" stroke="#f43f5e" stroke-width="0.5" />
+                        </g>
+                    </g>
+                </svg>
+            </div>
+
+        </div>
+
+        <!-- Confession Text (Hidden) -->
+        <div id="confession" class="confession-text absolute top-1/2 left-0 w-full px-6 z-20 pointer-events-none">
+            <h2 class="text-2xl font-bold text-rose-600 bg-white/90 p-4 rounded-xl shadow-lg border-2 border-rose-100">
+                I've liked you for a long time...<br>
+                <span class="text-sm font-normal text-gray-700 mt-2 block">This rose is my courage. 🌹</span>
+            </h2>
+        </div>
+
+        <!-- Controls -->
+        <div id="interaction-area" class="mt-4 opacity-0 transition-opacity duration-1000 pointer-events-none">
+            <div class="flex justify-center gap-6 relative h-16">
+                <button id="btnYes" class="btn-yes px-8 py-3 rounded-full text-white font-bold text-lg tracking-wide transform">
+                    YES 💕
+                </button>
+                <button id="btnNo" class="btn-no px-8 py-3 rounded-full font-bold text-lg tracking-wide border border-slate-300">
+                    NO 😳
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="fixed bottom-2 text-xs text-rose-300/60 title-font">
+        Made for Rose Day
+    </footer>
+
+    <script>
+        // --- Configuration & State ---
+        const state = {
+            hasInteracted: false,
+            musicPlaying: false,
+            isDarkMode: false,
+            noBtnEscapes: 0
+        };
+
+        // --- Elements ---
+        const els = {
+            boy: document.getElementById('boy'),
+            boyArm: document.getElementById('boy-arm'),
+            boyMouth: document.getElementById('boy-mouth'),
+            rose: document.getElementById('rose'),
+            girl: document.getElementById('girl'),
+            girlMouth: document.getElementById('girl-mouth'),
+            girlBlush: document.getElementById('girl-blush'),
+            typewriter: document.getElementById('typewriter'),
+            subtitle: document.getElementById('subtitle'),
+            interactionArea: document.getElementById('interaction-area'),
+            btnYes: document.getElementById('btnYes'),
+            btnNo: document.getElementById('btnNo'),
+            confession: document.getElementById('confession'),
+            bgMusic: document.getElementById('bgMusic'),
+            musicBtn: document.getElementById('musicToggle'),
+            themeBtn: document.getElementById('themeToggle')
+        };
+
+        // --- Typewriter Effect ---
+        function typeWriter(text, i, fnCallback) {
+            if (i < text.length) {
+                els.typewriter.innerHTML = text.substring(0, i+1);
+                setTimeout(() => typeWriter(text, i + 1, fnCallback), 100);
+            } else if (typeof fnCallback == 'function') {
+                setTimeout(fnCallback, 700);
+            }
+        }
+
+        // --- Timeline / Sequencing ---
+        window.addEventListener('load', () => {
+            // 1. Start Typewriter
+            typeWriter("Happy Rose Day 🌹", 0, () => {
+                // 2. Show Subtitle
+                els.subtitle.style.opacity = '1';
+                
+                // 3. Start Boy Walk Animation
+                startScene();
+            });
+        });
+
+        function startScene() {
+            // Boy starts walking from left (-150px) to center (left: 20%)
+            els.boy.classList.add('walk-anim');
+            els.boy.style.left = '20%'; // Destination
+
+            // Wait for walk to finish (approx 3s)
+            setTimeout(() => {
+                els.boy.classList.remove('walk-anim');
+                
+                // 4. Interaction: Boy offers rose
+                setTimeout(() => {
+                    // Arm rotates up
+                    els.boyArm.style.transform = 'rotate(-45deg)';
+                    // Rose scales up
+                    els.rose.style.transform = 'translate(35px, 120px) scale(1.5)';
+                    
+                    // Boy looks hopeful (Smile)
+                    els.boyMouth.setAttribute('d', 'M45,60 Q50,63 55,60');
+
+                    // Girl reacts
+                    setTimeout(() => {
+                        // Girl smiles
+                        els.girlMouth.setAttribute('d', 'M46,60 Q50,65 54,60');
+                        // Girl blushes
+                        els.girlBlush.style.opacity = '1';
+                        
+                        // 5. Show Buttons
+                        els.interactionArea.style.opacity = '1';
+                        els.interactionArea.classList.remove('pointer-events-none');
+                    }, 800);
+
+                }, 500);
+
+            }, 2500); // Walk duration
+        }
+
+        // --- Interaction Logic ---
+
+        // YES Button
+        els.btnYes.addEventListener('click', () => {
+            if(state.hasInteracted) return;
+            state.hasInteracted = true;
+            
+            // UI Cleanup
+            els.interactionArea.style.opacity = '0';
+            els.interactionArea.classList.add('pointer-events-none');
+            
+            // Animation Result
+            els.boyArm.style.transform = 'rotate(-60deg)'; // Lift higher
+            els.rose.classList.add('rose-floating'); // Float rose
+            
+            // Confession Text
+            els.confession.classList.add('confession-visible');
+
+            // Girl looks happier
+            els.girlMouth.setAttribute('d', 'M45,60 Q50,68 55,60'); // Big smile
+
+            // Particle Explosion
+            createHearts();
+        });
+
+        // NO Button (Run Away)
+        const moveNoButton = () => {
+            if(state.hasInteracted) return;
+            
+            const area = els.interactionArea;
+            const btn = els.btnNo;
+            
+            // Get boundaries
+            const rect = area.getBoundingClientRect();
+            const btnRect = btn.getBoundingClientRect();
+
+            // Calculate random position within the container area
+            // We use fixed pixel offsets relative to initial position for simplicity in this small card
+            const maxMoveX = 150; 
+            const maxMoveY = 50;
+            
+            const randomX = (Math.random() * maxMoveX * 2) - maxMoveX;
+            const randomY = (Math.random() * maxMoveY * 2) - maxMoveY;
+
+            btn.style.transform = `translate(${randomX}px, ${randomY}px)`;
+            
+            state.noBtnEscapes++;
+            
+            if (state.noBtnEscapes === 1) {
+                btn.innerText = "Wait! 😳";
+            } else if (state.noBtnEscapes === 3) {
+                btn.innerText = "Click YES! 😏";
+            } else if (state.noBtnEscapes > 5) {
+                btn.innerText = "Ok fine 🥹";
+            }
+        };
+
+        // Trigger move on hover (desktop) and touch start (mobile)
+        els.btnNo.addEventListener('mouseover', moveNoButton);
+        els.btnNo.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent click
+            moveNoButton();
+        });
+        els.btnNo.addEventListener('click', (e) => {
+            // In case they manage to click it
+            e.preventDefault();
+            moveNoButton();
+        });
+
+
+        // --- Particles System (Heart Explosion) ---
+        function createHearts() {
+            const container = document.getElementById('stage');
+            for(let i=0; i<30; i++) {
+                const heart = document.createElement('div');
+                heart.innerHTML = '💖';
+                heart.className = 'particle';
+                heart.style.left = (Math.random() * 100) + '%';
+                heart.style.top = '60%';
+                heart.style.fontSize = (Math.random() * 20 + 10) + 'px';
+                heart.style.animationDelay = (Math.random() * 0.5) + 's';
+                container.appendChild(heart);
+            }
+        }
+
+
+        // --- Canvas Petals Background ---
+        const canvas = document.getElementById('petalsCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        const petals = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Petal {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height - height;
+                this.size = Math.random() * 15 + 10;
+                this.speed = Math.random() * 2 + 0.5;
+                this.angle = Math.random() * 360;
+                this.spin = (Math.random() - 0.5) * 0.1;
+                this.color = `rgba(255, ${150 + Math.random() * 50}, ${150 + Math.random() * 50}, ${0.3 + Math.random() * 0.4})`;
+            }
+            update() {
+                this.y += this.speed;
+                this.x += Math.sin(this.angle) * 0.5;
+                this.angle += this.spin;
+                if(this.y > height) {
+                    this.y = -20;
+                    this.x = Math.random() * width;
+                }
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                // Draw a simple petal shape
+                ctx.moveTo(0, 0);
+                ctx.bezierCurveTo(this.size/2, -this.size/2, this.size, 0, 0, this.size);
+                ctx.bezierCurveTo(-this.size, 0, -this.size/2, -this.size/2, 0, 0);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        for(let i=0; i<40; i++) petals.push(new Petal());
+
+        function animatePetals() {
+            ctx.clearRect(0, 0, width, height);
+            petals.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animatePetals);
+        }
+        animatePetals();
+
+
+        // --- UI Toggles ---
+        els.musicBtn.addEventListener('click', () => {
+            state.musicPlaying = !state.musicPlaying;
+            if(state.musicPlaying) {
+                els.bgMusic.play().catch(() => alert("Interact with the page first!"));
+                els.musicBtn.innerHTML = '🔊';
+            } else {
+                els.bgMusic.pause();
+                els.musicBtn.innerHTML = '🎵';
+            }
+        });
+
+        els.themeBtn.addEventListener('click', () => {
+            state.isDarkMode = !state.isDarkMode;
+            document.body.classList.toggle('dark-mode');
+            els.themeBtn.innerHTML = state.isDarkMode ? '☀️' : '🌙';
+        });
+
+    </script>
+</body>
+</html>
