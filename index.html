@@ -536,6 +536,17 @@
             els.themeBtn.innerHTML = state.isDarkMode ? '☀️' : '🌙';
         });
 
+        // 🔊 Auto-start music after first user interaction (browser-safe)
+document.addEventListener('click', () => {
+    if (!state.musicPlaying) {
+        els.bgMusic.play();
+        state.musicPlaying = true;
+        els.musicBtn.innerHTML = '🔊';
+    }
+}, { once: true });
+
+
     </script>
 </body>
+
 </html>
